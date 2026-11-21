@@ -1,0 +1,61 @@
+<login-panel wx:if="{{authState === 'signed-out'}}" bind:signedin="onSignedIn" />
+
+<view class="page" wx:else>
+    <view class="loading-veil" wx:if="{{authState === 'checking'}}">
+        <view class="spinner"></view>
+    </view>
+
+    <block wx:if="{{authState === 'signed-in' && session}}">
+        <view class="score-hero">
+            <text class="score-label">本次得分</text>
+            <text class="score-num">{{score}}</text>
+            <text class="score-unit">分</text>
+            <view class="score-stats">
+                <view class="score-stat"><text class="ss-num">{{session.correctCount}}</text><text class="ss-label">答对</text></view>
+                <view class="score-stat"><text class="ss-num">{{questions.length}}</text><text class="ss-label">总题数</text></view>
+                <view class="score-stat"><text class="ss-num">{{duration}}</text><text class="ss-label">用时</text></view>
+            </view>
+            <text class="score-word" wx:if="{{score >= 90}}">🏆 优秀，继续保持！</text>
+            <text class="score-word" wx:elif="{{score >= 60}}">👍 不错，错题再巩固一下</text>
+            <text class="score-word" wx:else>💪 别灰心，看看解析再来一次</text>
+        </view>
+
+        <view class="redo-card" wx:if="{{wrongCount > 0}}">
+            <view class="redo-info">
+                <text class="redo-title">有 {{wrongCount}} 道错题</text>
+                <text class="redo-desc">AI 按错题知识点生成新题，再练一遍</text>
+            </view>
+            <button class="redo-btn" loading="{{reGenerating}}" disabled="{{reGenerating}}" bindtap="redoWrong">针对错题再练</button>
+        </view>
+        <view class="perfect-card" wx:else>
+            <text>🎉 全部答对，没有错题！</text>
+        </view>
+
+        <view class="section-title">逐题解析</view>
+        <view class="review-list">
+            <view class="review-item" wx:for="{{questions}}" wx:key="id">
+                <view class="review-head">
+                    <view class="review-badge {{item.isCorrect ? 'right' : 'wrong'}}">{{item.isCorrect ? '✓' : '✕'}}</view>
+                    <text class="review-no">第 {{item.index}} 题 · {{typeNames[item.type] || '题目'}}</text>
+                    <text class="review-kp" wx:if="{{item.knowledgePoint}}">{{item.knowledgePoint}}</text>
+                </view>
+                <text class="review-stem">{{item.stem}}</text>
+                <view class="review-answer">
+                    <text class="ans-label">正确答案：</text><text class="ans-right">{{item.answer}}</text>
+                </view>
+                <view class="review-answer" wx:if="{{!item.isCorrect}}">
+                    <text class="ans-label">你的答案：</text><text class="ans-wrong">{{item.userAnswer || '（未作答）'}}</text>
+                </view>
+                <view class="review-analysis" wx:if="{{item.analysis}}">
+                    <text class="ans-label">解析：</text><text>{{item.analysis}}</text>
+                </view>
+            </view>
+        </view>
+
+        <view class="action-row">
+            <button class="act ghost" bindtap="goHome">回到学科</button>
+            <button class="act primary" bindtap="goMistakes">查看错题本</button>
+        </view>
+        <view class="error-card" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+    </block>
+</view>

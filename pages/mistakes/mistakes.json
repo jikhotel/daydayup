@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "错题本",
+  "usingComponents": {
+    "login-panel": "../../components/login-panel/login-panel"
+  }
+}

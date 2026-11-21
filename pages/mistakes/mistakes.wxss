@@ -1,0 +1,71 @@
+.page { box-sizing: border-box; min-height: 100vh; padding: 40rpx 32rpx 80rpx; }
+.loading-veil { display: flex; min-height: 60vh; align-items: center; justify-content: center; }
+.spinner { width: 48rpx; height: 48rpx; border: 6rpx solid #dbe8fb; border-top-color: #3a7afe; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.spinner.small { width: 32rpx; height: 32rpx; border-width: 4rpx; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28rpx; }
+.head-title { display: block; font-size: 40rpx; font-weight: 800; color: #1b2230; }
+.head-desc { display: block; margin-top: 8rpx; font-size: 24rpx; color: #8a9099; }
+.filter-btn { padding: 14rpx 24rpx; border-radius: 14rpx; background: #eef3ff; color: #3a7afe; font-size: 24rpx; font-weight: 600; }
+
+.error-card { margin-bottom: 20rpx; padding: 24rpx; border-radius: 16rpx; background: #fff0ef; color: #d0403a; font-size: 25rpx; }
+
+.toolbar { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 8rpx; }
+.select-all { display: flex; align-items: center; font-size: 26rpx; color: #4e535b; }
+.selected-tip { font-size: 24rpx; color: #3a7afe; }
+
+.checkbox {
+    display: flex; width: 40rpx; height: 40rpx; flex-shrink: 0;
+    align-items: center; justify-content: center;
+    border: 2rpx solid #cbd0d8; border-radius: 10rpx;
+    color: #fff; font-size: 26rpx; font-weight: 700;
+    margin-right: 16rpx;
+}
+.checkbox.checked { background: #3a7afe; border-color: #3a7afe; }
+
+.mistake-list { display: flex; flex-direction: column; gap: 18rpx; }
+.mistake-item {
+    display: flex; align-items: flex-start;
+    padding: 24rpx; border: 2rpx solid #eef0f3;
+    border-radius: 20rpx; background: #fff;
+}
+.mistake-item.sel { border-color: #bcd4ff; background: #f7faff; }
+.m-content { flex: 1; min-width: 0; }
+.m-head { display: flex; align-items: center; gap: 12rpx; margin-bottom: 12rpx; }
+.m-type { padding: 6rpx 14rpx; border-radius: 12rpx; background: #eef3ff; color: #3a7afe; font-size: 20rpx; }
+.m-subject { font-size: 20rpx; color: #9aa0aa; }
+.m-stem { display: block; font-size: 27rpx; color: #1b2230; line-height: 1.6; margin-bottom: 12rpx; }
+.m-row { font-size: 24rpx; line-height: 1.6; }
+.m-label { color: #9aa0aa; }
+.m-right { color: #1a9c6e; font-weight: 600; }
+.m-wrong { color: #e5453b; font-weight: 600; }
+.m-kp { margin-top: 12rpx; padding: 8rpx 14rpx; border-radius: 12rpx; background: #f7f8fa; color: #646a73; font-size: 21rpx; }
+
+.gen-btn {
+    height: 96rpx; margin-top: 32rpx;
+    border-radius: 20rpx; background: linear-gradient(135deg, #f2994a, #eb6a3a);
+    color: #fff; font-size: 30rpx; font-weight: 700; line-height: 96rpx;
+    box-shadow: 0 12rpx 28rpx rgba(242, 153, 74, 0.28);
+}
+.gen-tip { display: block; margin-top: 16rpx; text-align: center; font-size: 21rpx; color: #9aa0aa; }
+
+.empty-card { display: flex; align-items: center; flex-direction: column; padding: 88rpx 40rpx; border: 2rpx dashed #d7dce5; border-radius: 24rpx; text-align: center; }
+.empty-icon { font-size: 88rpx; }
+.empty-title { margin-top: 20rpx; font-size: 32rpx; font-weight: 700; color: #1b2230; }
+.empty-desc { margin-top: 12rpx; font-size: 25rpx; color: #8a9099; line-height: 1.6; }
+.primary-button { margin-top: 32rpx; padding: 0 48rpx; background: #3a7afe; color: #fff; font-size: 28rpx; font-weight: 600; border-radius: 16rpx; }
+.loading-inline { display: flex; align-items: center; justify-content: center; padding: 32rpx; color: #8a9099; font-size: 24rpx; }
+.loading-inline .spinner { margin-right: 16rpx; }
+
+/* 已掌握相关 */
+.mastered-row { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 24rpx; margin-bottom: 20rpx; border: 2rpx solid #eef0f3; border-radius: 16rpx; background: #fff; }
+.mastered-tip { font-size: 25rpx; color: #4e535b; }
+.m-mastered-badge { padding: 4rpx 14rpx; border-radius: 12rpx; background: #e3f5ec; color: #1a9c6e; font-size: 20rpx; font-weight: 600; }
+.mistake-item.done { opacity: 0.72; }
+.m-actions { margin-top: 14rpx; }
+.mastered-btn {
+    display: inline-block; padding: 10rpx 22rpx; border-radius: 14rpx;
+    background: #e3f5ec; color: #1a9c6e; font-size: 22rpx; font-weight: 600;
+}
+.mastered-btn.reopen { background: #f1f3f6; color: #8a9099; }

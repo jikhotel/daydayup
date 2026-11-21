@@ -1,0 +1,6 @@
+{
+    "navigationBarTitleText": "学科选择",
+    "usingComponents": {
+        "login-panel": "/components/login-panel/login-panel"
+    }
+}

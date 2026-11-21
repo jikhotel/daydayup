@@ -1,0 +1,28 @@
+<login-panel wx:if="{{authState === 'signed-out'}}" bind:signedin="onSignedIn" />
+
+<view class="page" wx:else>
+    <view class="loading-veil" wx:if="{{authState === 'checking'}}">
+        <view class="spinner"></view>
+    </view>
+
+    <block wx:if="{{authState === 'signed-in'}}">
+        <view class="external-tip" wx:if="{{externalTip}}">{{externalTip}}</view>
+
+        <view class="error-card" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+
+        <block wx:if="{{imgPath}}">
+            <view class="paper-head">
+                <text class="paper-title">试卷预览 {{paperMeta}}</text>
+                <view class="paper-actions">
+                    <button class="mini-btn" bindtap="saveToAlbum">存相册</button>
+                </view>
+            </view>
+            <image class="paper-img" src="{{imgPath}}" mode="widthFix" show-menu-by-longpress="{{true}}" />
+            <button class="pdf-btn" loading="{{pdfBusy}}" disabled="{{pdfBusy}}" bindtap="makePdf">📄 生成 PDF 并打印</button>
+            <text class="pdf-hint">生成标准 A4 PDF 后自动打开预览，可直接打印、转发或用其他应用打开。</text>
+        </block>
+    </block>
+</view>
+
+<!-- 离屏 canvas：实际绘制与导出用 -->
+<canvas type="2d" id="paper" class="offscreen-canvas" style="width: {{canvasW}}px; height: {{canvasH}}px;"></canvas>

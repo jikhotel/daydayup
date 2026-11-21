@@ -1,0 +1,10 @@
+.head { padding: 16rpx 8rpx 28rpx; }
+.head-title { display: block; font-size: 42rpx; font-weight: 800; color: #1b2230; }
+.head-desc { display: block; margin-top: 10rpx; font-size: 25rpx; color: #8a9099; line-height: 1.5; }
+
+.prompt-input {
+    box-sizing: border-box; width: 100%; min-height: 140rpx;
+    padding: 20rpx 24rpx; border: 2rpx solid #e3e6eb; border-radius: 14rpx;
+    background: #f7f8fa; font-size: 27rpx; line-height: 1.6; color: #1b2230;
+}
+.sample-link { display: inline-block; margin-top: 14rpx; font-size: 23rpx; color: #3a7afe; }

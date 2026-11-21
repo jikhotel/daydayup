@@ -1,0 +1,24 @@
+.page { box-sizing: border-box; min-height: 100vh; padding: 40rpx 32rpx 80rpx; }
+
+.hero { padding: 24rpx 8rpx 36rpx; }
+.hero-title { display: block; font-size: 52rpx; font-weight: 800; color: #1b2230; letter-spacing: 2rpx; }
+.hero-sub { display: block; margin-top: 10rpx; font-size: 26rpx; color: #8a9099; }
+
+.subject-grid { display: flex; flex-wrap: wrap; justify-content: space-between; }
+.subject-card {
+    box-sizing: border-box; width: 212rpx; margin-bottom: 24rpx;
+    padding: 28rpx 20rpx; border: 2rpx solid #eef0f3; border-radius: 24rpx;
+    background: #fff; text-align: center;
+    box-shadow: 0 6rpx 20rpx rgba(30,40,70,0.04);
+}
+.subject-card:active { transform: scale(0.97); }
+.card-mark { display: flex; width: 96rpx; height: 96rpx; margin: 0 auto; align-items: center; justify-content: center; border-radius: 24rpx; }
+.card-icon { font-size: 52rpx; }
+.card-name { display: block; margin-top: 16rpx; font-size: 30rpx; font-weight: 700; color: #1b2230; }
+.card-meta { display: block; margin-top: 8rpx; font-size: 21rpx; color: #9aa0aa; }
+
+.loading-inline { display: flex; align-items: center; justify-content: center; padding: 32rpx; color: #8a9099; font-size: 24rpx; }
+.loading-inline .spinner { width: 32rpx; height: 32rpx; border-width: 4rpx; margin-right: 14rpx; }
+.spinner.small { width: 32rpx; height: 32rpx; border-width: 4rpx; }
+
+.footer-link { display: block; margin-top: 48rpx; text-align: center; font-size: 26rpx; color: #3a7afe; }

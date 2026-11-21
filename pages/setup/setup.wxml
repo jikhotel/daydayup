@@ -1,0 +1,81 @@
+<login-panel wx:if="{{authState === 'signed-out'}}" bind:signedin="onSignedIn" />
+
+<view class="page" wx:else>
+    <view class="loading-veil" wx:if="{{authState === 'checking'}}">
+        <view class="spinner"></view>
+    </view>
+
+    <block wx:if="{{authState === 'signed-in'}}">
+        <view class="head">
+            <text class="head-title">{{subjectName}} · 出题</text>
+            <text class="head-desc">配好范围与来源，组卷后可在线答题或生成 PDF 打印</text>
+        </view>
+
+        <view class="card">
+            <view class="card-label">出题范围</view>
+
+            <view class="field-row">
+                <text class="field-name">知识点</text>
+                <picker mode="selector" range="{{topics}}" value="{{topicIndex}}" bindchange="onTopicChange">
+                    <view class="field-value">{{topics[topicIndex] || '加载中…'}} ‹</view>
+                </picker>
+            </view>
+
+            <view class="field-row">
+                <text class="field-name">年级</text>
+                <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="onGradeChange">
+                    <view class="field-value">{{grades[gradeIndex]}} ‹</view>
+                </picker>
+            </view>
+
+            <view class="field-row">
+                <text class="field-name">教材版本</text>
+                <picker mode="selector" range="{{publishers}}" value="{{publisherIndex}}" bindchange="onPublisherChange">
+                    <view class="field-value">{{publishers[publisherIndex]}} ‹</view>
+                </picker>
+            </view>
+
+            <view class="field-row">
+                <text class="field-name">题量</text>
+                <view class="stepper">
+                    <view class="step-btn" bindtap="countMinus">−</view>
+                    <text class="step-value">{{questionCount}} 题</text>
+                    <view class="step-btn" bindtap="countPlus">＋</view>
+                </view>
+            </view>
+
+            <view class="field-row column">
+                <text class="field-name">题型（可多选）</text>
+                <view class="chip-grid">
+                    <view class="chip {{item.checked ? 'active' : ''}}"
+                          wx:for="{{typeOptions}}" wx:key="key"
+                          data-key="{{item.key}}" bindtap="toggleType">{{item.name}}</view>
+                </view>
+            </view>
+        </view>
+
+        <view class="card">
+            <view class="card-label">题目来源</view>
+            <view class="chip-grid">
+                <view class="chip {{item.checked ? 'active' : ''}}"
+                      wx:for="{{sourceOptions}}" wx:key="key"
+                      data-key="{{item.key}}" bindtap="toggleSource">{{item.name}}</view>
+            </view>
+            <text class="field-hint">都勾选时题库优先、AI 补足；AI 出的题会自动积累进题库</text>
+
+            <block wx:if="{{sourceOptions[1].checked}}">
+                <text class="field-name" style="display:block;margin:24rpx 0 14rpx;">AI 出题要求（一句话描述）</text>
+                <textarea class="prompt-input" maxlength="200" placeholder="例如：人教版高一上诗词古文练习，要有古文翻译"
+                          value="{{prompt}}" bindinput="onPromptInput"></textarea>
+                <view class="sample-link" bindtap="useSample">填入示例</view>
+            </block>
+        </view>
+
+        <view class="error-card" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+
+        <button class="primary-btn" loading="{{generating}}" disabled="{{generating}}" bindtap="startQuiz">
+            {{generating ? '组卷中…' : '开始在线答题'}}
+        </button>
+        <button class="ghost-btn" style="margin-top:20rpx;" disabled="{{generating}}" bindtap="makePaper">🖨️ 生成打印卷（PDF）</button>
+    </block>
+</view>

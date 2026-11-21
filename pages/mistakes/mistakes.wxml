@@ -1,0 +1,73 @@
+<login-panel wx:if="{{authState === 'signed-out'}}" bind:signedin="onSignedIn" />
+
+<view class="page" wx:else>
+    <view class="loading-veil" wx:if="{{authState === 'checking'}}">
+        <view class="spinner"></view>
+    </view>
+
+    <block wx:if="{{authState === 'signed-in'}}">
+        <view class="head">
+            <view>
+                <text class="head-title">错题本</text>
+                <text class="head-desc">待复习 {{pendingCount}} 道 · 已掌握 {{masteredCount}} 道</text>
+            </view>
+            <picker mode="selector" range="{{subjects}}" value="{{filterIndex}}" bindchange="onFilterChange">
+                <view class="filter-btn">{{subjects[filterIndex]}} ‹</view>
+            </picker>
+        </view>
+
+        <view class="mastered-row">
+            <text class="mastered-tip">隐藏已掌握的错题</text>
+            <switch checked="{{hideMastered}}" bindchange="onHideMasteredToggle" color="#3a7afe" />
+        </view>
+
+        <view class="error-card" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+
+        <block wx:if="{{mistakes.length > 0}}">
+            <view class="toolbar">
+                <view class="select-all" bindtap="toggleSelectAll">
+                    <text class="checkbox {{mistakes.length > 0 && selectedCount === mistakes.length ? 'checked' : ''}}">{{mistakes.length > 0 && selectedCount === mistakes.length ? '✓' : ''}}</text>
+                    <text>全选</text>
+                </view>
+                <text class="selected-tip">已选 {{selectedCount}} 道</text>
+            </view>
+
+            <view class="mistake-list">
+                <view class="mistake-item {{item.selected ? 'sel' : ''}} {{item.mastered ? 'done' : ''}}"
+                      wx:for="{{mistakes}}" wx:key="id"
+                      data-id="{{item.id}}" bindtap="toggleSelect">
+                    <text class="checkbox {{item.selected ? 'checked' : ''}}">{{item.selected ? '✓' : ''}}</text>
+                    <view class="m-content">
+                        <view class="m-head">
+                            <text class="m-type">{{typeNames[item.type] || '题目'}}</text>
+                            <text class="m-mastered-badge" wx:if="{{item.mastered}}">已掌握</text>
+                            <text class="m-subject" wx:if="{{item.subject}}">{{item.subject}} · {{item.textbook}}</text>
+                        </view>
+                        <text class="m-stem">{{item.stem}}</text>
+                        <view class="m-row"><text class="m-label">正确：</text><text class="m-right">{{item.answer}}</text></view>
+                        <view class="m-row"><text class="m-label">我的：</text><text class="m-wrong">{{item.userAnswer || '未作答'}}</text></view>
+                        <view class="m-kp" wx:if="{{item.knowledgePoint}}">知识点：{{item.knowledgePoint}}</view>
+                        <view class="m-actions">
+                            <view class="mastered-btn" wx:if="{{!item.mastered}}" data-id="{{item.id}}" data-val="{{true}}" catchtap="toggleMastered">标记已掌握</view>
+                            <view class="mastered-btn reopen" wx:else data-id="{{item.id}}" data-val="{{false}}" catchtap="toggleMastered">重新加入复习</view>
+                        </view>
+                    </view>
+                </view>
+            </view>
+
+            <button class="gen-btn" loading="{{reGenerating}}" disabled="{{reGenerating}}" bindtap="generateFromSelected">
+                {{reGenerating ? '生成中…' : (selectedCount > 0 ? '用选中错题生成巩固题' : '用全部错题生成巩固题')}}
+            </button>
+            <text class="gen-tip">未选题时默认使用当前筛选下的全部错题；巩固练对的错题可标记掌握移出复习队列</text>
+        </block>
+
+        <view class="empty-card" wx:elif="{{!loading}}">
+            <text class="empty-icon">📕</text>
+            <text class="empty-title">{{hideMastered && masteredCount > 0 ? '待复习的错题都掌握了' : '错题本还是空的'}}</text>
+            <text class="empty-desc">{{hideMastered && masteredCount > 0 ? '完成一次出题打卡后，答错的题目会自动收进这里' : '完成一次出题打卡后，答错的题目会自动收进这里'}}</text>
+            <button class="primary-button" bindtap="goHome">去学科页出题</button>
+        </view>
+
+        <view class="loading-inline" wx:if="{{loading}}"><view class="spinner small"></view><text>加载中…</text></view>
+    </block>
+</view>
