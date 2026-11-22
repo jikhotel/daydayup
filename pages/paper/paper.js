@@ -94,8 +94,8 @@ Page({
         }
     },
 
-    // 整卷长 JPEG → 多页 A4 PDF（每页用同一张图 + 视口矩阵平移）→ 系统打印。
-    // 不再走分页裁剪导出（真机上 2d canvas 的 x/y 裁剪极易 fail）。
+    // 逐页排版 → 每页一张 A4 JPEG → 多页 PDF → 系统打印。
+    // 内容按「整题/整行」块分配，页面放不下整块移到下一页，一行字不会跨页。
     async makePdf() {
         if (this.data.pdfBusy || this.data.generating) return;
         const last = this._lastRender;
@@ -104,17 +104,21 @@ Page({
             return;
         }
         this.setData({ pdfBusy: true, errorMsg: '' });
-        wx.showLoading({ title: '正在生成 PDF…', mask: true });
+        wx.showLoading({ title: '正在排版生成 PDF…', mask: true });
         try {
+            // canvas CSS 尺寸改为单页逻辑尺寸，与逐页 drawing buffer 严格成 dpr 比例
+            this.setData({ canvasW: renderer.A4_W, canvasH: renderer.PAGE_H });
+            await new Promise((r) => setTimeout(r, 60));   // 等一帧让样式生效
+
             const node = await this.getCanvasNode();
-            const longImg = await renderer.buildPaperJpeg(node, last.questions, {
+            const jpegs = await renderer.renderPagedJpegs(node, last.questions, {
                 withAnswer: last.options.withAnswer === true,
                 title: last.options.title,
                 kicker: last.options.kicker,
                 notice: last.options.notice,
             }, last.dpr);
-            const pdfBytes = pdfWriter.buildPdfFromLongImage(longImg.data, longImg.w, longImg.h);
-            console.log('[paper] PDF 组装完成，' + pdfBytes.byteLength + ' 字节');
+            const pdfBytes = pdfWriter.buildPdf(jpegs);
+            console.log('[paper] PDF 组装完成，' + jpegs.length + ' 页，' + pdfBytes.byteLength + ' 字节');
             const fs = wx.getFileSystemManager();
             const filePath = wx.env.USER_DATA_PATH + '/练习卷_' + Date.now() + '.pdf';
             fs.writeFileSync(filePath, pdfBytes.buffer, 'binary');

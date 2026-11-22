@@ -4,7 +4,7 @@
 > 本文件固化项目的全貌、云环境、数据层、功能清单、发布方式与踩坑记录。
 > publishableKey / clientId 属前端公开配置（随代码分发），除此不含任何密钥。
 >
-> 最后更新：2026-11-22 · 当前版本：**v0.2.6**
+> 最后更新：2026-11-22 · 当前版本：**v0.2.7**
 
 ---
 
@@ -32,7 +32,7 @@
 | GitHub 仓库 | `jikhotel/daydayup`（main） |
 | 前身 | subject-checkin v1.x（语文学科打卡），已废弃 |
 
-**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）→ v0.2.4 = bug 修复一批 → v0.2.5 = 回退增强 → v0.2.6 = PDF 换根本方案（整卷长 JPEG + PDF 视口分页，弃用裁剪导出）。
+**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）→ v0.2.4 = bug 修复一批 → v0.2.5 = 回退增强 → v0.2.6 = PDF 换根本方案（长图+视口分页，能生成但会把字切两半）→ v0.2.7 = 逐页排版（整题/整行块分页，一行字绝不跨页）。
 
 ---
 
@@ -112,10 +112,13 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY -u al
 4. **LLM 流式**：`messages[0] 必须 system`；模型经 `cloud.llm.models.list()` 动态选
    （auto → 含 flash → 第一个可用）；`response_format: {type:'json_object'}`。
    模型输出可能带 ```json 围栏，`extractJson` 已兜底。
-5. **PDF 方案（v0.2.6 起，根本重写）**：canvas 整卷绘制 → **一次**导出长 JPEG
-   （`buildPaperJpeg`，**不传 x/y/height 裁剪**）→ `buildPdfFromLongImage` 把这一张图作为
-   单个 image XObject，多页 PDF 每页用 `cm` 视口矩阵把长图上下平移、页面 MediaBox 之外
-   自然裁掉 → `fs.writeFileSync` → `wx.openDocument`。
+5. **PDF 方案（v0.2.7 起，逐页排版）**：`layoutPaged` 先把内容拆成「整题块 /
+   整行块」，贪心分到 A4 页，放不下就整块移到下一页；**页面边界只落在块之间**，
+   一行文字绝不会跨页。`renderPagedJpegs` 每页独立重设 canvas（A4 逻辑 794×1122）
+   绘制页眉/内容/页码 → `canvasToTempFilePath`（无裁剪）→ JPEG → `buildPdf(每页一张图)`
+   → `wx.openDocument`。答案区强制另起一页。
+   ⚠️ v0.2.6 的「长图 + PDF 视口平移」虽能生成 PDF，但页边界按像素切会把一行字截成
+   两半，已弃用（函数保留）。
    ⚠️ 旧方案 `exportPageJpegs`（多页 x/y 裁剪）在真机必失败：2d canvas 的
    canvasToTempFilePath 裁剪坐标与离屏 CSS 尺寸不一致；语文应用的"长图能存、PDF 失败"
    也是同一根因。旧函数保留但不再使用。
@@ -154,6 +157,7 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY -u al
 | `output/test-static.js` | JSON 合法性 / 7 页四件套完整 / JS 语法 / wxml 绑定↔js 方法一致 / require 路径存在 |
 | `output/test-daydayup.js` | 19 项：题型映射 / drawQuestions（含 grade 与 AI 可见性）/ toAppQuestion / AI 回写幂等 / 判分 / LLM JSON / setup.buildPaper |
 | `output/test-pdf-pipeline.js` | 3 项：长图→多页 PDF 结构（Count/xref/cm 平移）/ 真机 wx stub 下 buildPaperJpeg 无裁剪导出 + ArrayBuffer 包装 + 真实尺寸 |
+| `output/test-pagination.js` | 3 项：多题分页且每页块高≤可用高度 / 答案区另起页 / 每页独立 canvas、无裁剪导出、所有文字坐标在页内（一行不跨页）+ PDF 页数一致 |
 
 mock 方式：require.cache 注入 fake cloud；`global.Page/wx/getApp` stub。
 

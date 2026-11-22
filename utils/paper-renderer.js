@@ -409,11 +409,266 @@ function exportPageJpegs(canvasNode, questions, opts, dpr) {
     });
 }
 
+// ============================================================
+// 逐页排版（v0.2.7）：先按「整题 / 整行」生成内容块，再贪心分到 A4 页。
+// 页面边界只会落在块与块之间，一行文字绝不会跨两页。
+// ============================================================
+const PAGE_H = Math.round(A4_W * 297 / 210);   // A4 页逻辑高（1122）
+const FOOTER_H = 36;
+const FIRST_HEADER_H = 150;                    // 第 1 页页眉（kicker/标题/信息/说明）
+const SUB_HEADER_H = 56;                       // 后续页简页眉
+
+function drawRow(ctx, row, y) {
+    if (row.spacer) return;
+    if (row.rule) {
+        ctx.strokeStyle = C.line;
+        ctx.lineWidth = 1;
+        for (let r = 0; r < row.count; r++) {
+            const ry = y + 34 * (r + 1);
+            ctx.beginPath();
+            ctx.moveTo(MARGIN_X + 34, ry);
+            ctx.lineTo(A4_W - MARGIN_X, ry);
+            ctx.stroke();
+        }
+        return;
+    }
+    setFont(ctx, row.font[0], row.font[1]);
+    ctx.fillStyle = row.color;
+    ctx.textAlign = 'left';
+    const baseline = y + Math.round(row.h * 0.75);
+    if (row.num) {
+        ctx.fillText(row.num, MARGIN_X, baseline);
+    }
+    ctx.fillText(row.text, row.x, baseline);
+}
+
+// 把一组行打包成块；整块放不进一页时按行拆（行仍是最小单位）。
+function makeBlocks(rows, maxH, gap) {
+    const total = rows.reduce((s, r) => s + r.h, 0) + gap;
+    if (rows.length > 0 && total <= maxH) {
+        return [{ h: total, draw(ctx, y) {
+            let yy = y;
+            rows.forEach((r) => { drawRow(ctx, r, yy); yy += r.h; });
+        } }];
+    }
+    return rows.map((r) => ({ h: r.h, draw(ctx, y) { drawRow(ctx, r, y); } }));
+}
+
+function questionRows(ctx, q, index) {
+    const lineH = 26;
+    const indent = 34;
+    const numText = (index + 1) + '．';
+    setFont(ctx, 15, '');
+    const numW = ctx.measureText(numText).width;
+    const stem = String(q.stem || '').replace(/_{2,}/g, '＿＿＿＿＿＿');
+    const stemLines = wrapText(ctx, stem, CONTENT_W - numW - indent);
+    const rows = stemLines.map((ln, i) => ({
+        text: ln,
+        x: i === 0 ? MARGIN_X + numW : MARGIN_X + indent,
+        font: [15, ''], color: C.ink, h: lineH,
+        num: i === 0 ? numText : null,
+    }));
+    if (q.poem) {
+        rows.push({ text: '——《' + q.poem + '》', x: MARGIN_X + indent, font: [12, ''], color: C.soft, h: lineH });
+    }
+    const options = Array.isArray(q.options) ? q.options : [];
+    if ((q.type === 'single' || q.type === 'multi') && options.length > 0) {
+        const keys = ['A', 'B', 'C', 'D', 'E', 'F'];
+        options.forEach((o, oi) => {
+            const t = (keys[oi] || String(oi + 1)) + '．' + String(o);
+            setFont(ctx, 14, '');
+            wrapText(ctx, t, CONTENT_W - indent).forEach((ln) => {
+                rows.push({ text: ln, x: MARGIN_X + indent, font: [14, ''], color: C.ink, h: 22 });
+            });
+        });
+    }
+    if (q.type === 'solve') {
+        rows.push({ rule: true, count: 4, h: 4 * 34 });
+    } else if (q.type === 'blank' || q.type === 'judge') {
+        rows.push({ spacer: true, h: 28 });   // 留一行作答空间
+    }
+    return rows;
+}
+
+function answerRows(ctx, q, index) {
+    const a = answerLayout(ctx, q, index);
+    const rows = a.headLines.map((ln) => ({ text: ln, x: MARGIN_X, font: [13, 'bold'], color: C.ok, h: a.lineH }));
+    a.anaLines.forEach((ln) => rows.push({ text: ln, x: MARGIN_X, font: [12, ''], color: C.soft, h: 20 }));
+    rows.push({ spacer: true, h: 10 });
+    return rows;
+}
+
+// 返回二维数组：pages[i] = 该页的块数组（不含页眉/页脚）。
+function layoutPaged(ctx, questions, opts) {
+    const options = opts || {};
+    const withAnswer = options.withAnswer === true;
+    const availFirst = PAGE_H - MARGIN_BOTTOM - FOOTER_H - (MARGIN_TOP + FIRST_HEADER_H);
+    const availSub = PAGE_H - MARGIN_BOTTOM - FOOTER_H - (MARGIN_TOP + SUB_HEADER_H);
+    const maxBlockH = Math.min(availFirst, availSub);
+
+    const blocks = [];
+    (questions || []).forEach((q, i) => {
+        makeBlocks(questionRows(ctx, q, i), maxBlockH, 16).forEach((b) => blocks.push(b));
+    });
+    if (withAnswer && questions && questions.length > 0) {
+        blocks.push({ pagebreak: true });   // 答案另起一页
+        blocks.push({
+            h: 44,
+            draw(ctx2, y) {
+                setFont(ctx2, 18, 'bold');
+                ctx2.textAlign = 'center';
+                ctx2.fillStyle = C.ink;
+                ctx2.fillText('参考答案与解析', A4_W / 2, y + 26);
+                ctx2.textAlign = 'left';
+            },
+        });
+        questions.forEach((q, i) => {
+            makeBlocks(answerRows(ctx, q, i), maxBlockH, 0).forEach((b) => blocks.push(b));
+        });
+    }
+
+    const pages = [];
+    let cur = [];
+    let used = 0;
+    let avail = availFirst;
+    blocks.forEach((b) => {
+        if (b.pagebreak) {
+            if (cur.length > 0) { pages.push(cur); cur = []; used = 0; avail = availSub; }
+            return;
+        }
+        if (cur.length > 0 && used + b.h > avail) {
+            pages.push(cur);
+            cur = [];
+            used = 0;
+            avail = availSub;
+        }
+        cur.push(b);
+        used += b.h;
+    });
+    if (cur.length > 0) pages.push(cur);
+    return pages.length > 0 ? pages : [[]];
+}
+
+function drawPageHeader(ctx, opts, questions, isFirst) {
+    const options = opts || {};
+    let y = MARGIN_TOP;
+    if (isFirst) {
+        setFont(ctx, 12, '');
+        ctx.fillStyle = C.accent;
+        ctx.textAlign = 'center';
+        ctx.fillText(options.kicker || '', A4_W / 2, y);
+        y += 26;
+        setFont(ctx, 22, 'bold');
+        ctx.fillStyle = C.ink;
+        ctx.fillText(options.title || '练习卷', A4_W / 2, y);
+        y += 34;
+        setFont(ctx, 13, '');
+        ctx.textAlign = 'left';
+        ctx.fillStyle = C.ink;
+        const metaItems = ['姓名', '班级', '日期', '得分：________（共 ' + (questions || []).length + ' 题）'];
+        let mx = MARGIN_X;
+        metaItems.forEach((m, i) => {
+            const label = i < 3 ? m + '：' : m;
+            ctx.fillText(label, mx, y);
+            mx += ctx.measureText(label).width + (i < 3 ? 44 : 0);
+        });
+        y += 20;
+        ctx.strokeStyle = C.line;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(MARGIN_X, y);
+        ctx.lineTo(A4_W - MARGIN_X, y);
+        ctx.stroke();
+        y += 26;
+        setFont(ctx, 13, '');
+        ctx.fillStyle = C.blank;
+        ctx.fillText(options.notice || '选择题请将正确答案填在括号内；判断题答「对/错」；填空题直接写出答案。', MARGIN_X, y);
+        y += 34;
+    } else {
+        setFont(ctx, 13, '');
+        ctx.fillStyle = C.soft;
+        ctx.textAlign = 'left';
+        ctx.fillText((options.title || '练习卷') + '（续）', MARGIN_X, y);
+        y += 26;
+        ctx.strokeStyle = C.line;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(MARGIN_X, y);
+        ctx.lineTo(A4_W - MARGIN_X, y);
+        ctx.stroke();
+        y += 30;
+    }
+    ctx.textAlign = 'left';
+    return y;   // = MARGIN_TOP + FIRST_HEADER_H / SUB_HEADER_H
+}
+
+function drawPageFooter(ctx, pageNo, total) {
+    setFont(ctx, 12, '');
+    ctx.fillStyle = C.soft;
+    ctx.textAlign = 'center';
+    ctx.fillText('第 ' + pageNo + ' 页 / 共 ' + total + ' 页', A4_W / 2, PAGE_H - MARGIN_BOTTOM / 2);
+    ctx.textAlign = 'left';
+}
+
+// 逐页绘制并导出 JPEG（每页一次 canvasToTempFilePath，不传裁剪参数）。
+// 返回 [{ data: Uint8Array(JPEG), w, h }]，可直接喂给 pdfWriter.buildPdf。
+function renderPagedJpegs(canvasNode, questions, opts, dpr) {
+    return new Promise((resolve, reject) => {
+        const ctx = canvasNode.getContext('2d');
+        const pages = layoutPaged(ctx, questions, opts);
+        const safeDpr = Math.max(1, Math.min(3, Math.floor(Number(dpr) || 2)));  // 页高 1122*dpr ≤ 4096
+        const physW = Math.round(A4_W * safeDpr);
+        const physH = Math.round(PAGE_H * safeDpr);
+        console.log('[paper] 逐页排版：共 ' + pages.length + ' 页，' + physW + 'x' + physH);
+        const fs = wx.getFileSystemManager();
+        const out = [];
+        let i = 0;
+        let failErr = null;
+        function next() {
+            if (failErr) { reject(failErr); return; }
+            if (i >= pages.length) { resolve(out); return; }
+            canvasNode.width = physW;
+            canvasNode.height = physH;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(safeDpr, safeDpr);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, A4_W, PAGE_H);
+            ctx.textBaseline = 'alphabetic';
+            let y = drawPageHeader(ctx, opts, questions, i === 0);
+            pages[i].forEach((b) => { if (b.draw) b.draw(ctx, y); y += b.h || 0; });
+            drawPageFooter(ctx, i + 1, pages.length);
+
+            wx.canvasToTempFilePath({
+                canvas: canvasNode,
+                fileType: 'jpg',
+                quality: 0.92,
+                success: (res) => {
+                    fs.readFile({
+                        filePath: res.tempFilePath,
+                        success: (r) => {
+                            out.push({ data: new Uint8Array(r.data), w: physW, h: physH });
+                            console.log('[paper] 第 ' + (i + 1) + '/' + pages.length + ' 页导出完成');
+                            i++;
+                            next();
+                        },
+                        fail: (e) => { failErr = new Error('读取页面图片失败: ' + ((e && e.errMsg) || '')); next(); },
+                    });
+                },
+                fail: (e) => { failErr = new Error('导出页面图片失败: ' + ((e && e.errMsg) || '')); next(); },
+            });
+        }
+        next();
+    });
+}
+
 module.exports = {
     A4_W,
+    PAGE_H,
     shuffle,
     renderPaper,
     buildPaperImage,
     buildPaperJpeg,
     exportPageJpegs,
+    layoutPaged,
+    renderPagedJpegs,
 };
