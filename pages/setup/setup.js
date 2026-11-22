@@ -22,7 +22,7 @@ Page({
         topics: [],
         topicIndex: 0,
         grades: bank.GRADES.map((g) => g.name),
-        gradeIndex: 2,          // 默认全部
+        gradeIndex: bank.GRADES.length - 1,     // 默认全部
         publishers: bank.PUBLISHERS,
         publisherIndex: 0,      // 默认人教版
         questionCount: 10,
@@ -106,8 +106,8 @@ Page({
     },
 
     gradeName() {
-        return this.data.grades[this.data.gradeIndex] === '初中' ? '初中'
-            : (this.data.grades[this.data.gradeIndex] === '高中' ? '高中' : '中学');
+        const name = this.data.grades[this.data.gradeIndex] || '中学';
+        return name.indexOf('全部') === 0 ? '中学' : name;   // 「全部」在示例 prompt 里说「中学」
     },
 
     // 组卷：题库优先，AI 补足。

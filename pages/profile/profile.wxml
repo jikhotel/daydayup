@@ -23,6 +23,6 @@
         </view>
 
         <button class="logout-btn" bindtap="onSignOut">退出登录</button>
-        <text class="version">DayDayUp · v0.2.0</text>
+        <text class="version">DayDayUp · v0.2.2</text>
     </block>
 </view>

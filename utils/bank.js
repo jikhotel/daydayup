@@ -15,12 +15,17 @@ const SUBJECTS = [
     { code: 'politics', name: '政治', icon: '⚖️', color: '#5d6d7e' },
 ];
 
-// 年级（题库 grade 字段语义）。
+// 年级（题库 grade 字段语义：7-9=初一~初三，10-12=高一~高三）。逐级可选 + 全部。
 const GRADES = [
-    { key: 'junior', name: '初中', min: 7, max: 9 },
-    { key: 'senior', name: '高中', min: 10, max: 12 },
+    { key: 'g7', name: '初一', min: 7, max: 7 },
+    { key: 'g8', name: '初二', min: 8, max: 8 },
+    { key: 'g9', name: '初三', min: 9, max: 9 },
+    { key: 'g10', name: '高一', min: 10, max: 10 },
+    { key: 'g11', name: '高二', min: 11, max: 11 },
+    { key: 'g12', name: '高三', min: 12, max: 12 },
     { key: 'all', name: '全部（初一~高三）', min: 7, max: 12 },
 ];
+const GRADE_ALL = GRADES[GRADES.length - 1];
 
 // 教材版本（题库无版本字段，版本用于 AI 出题语境与试卷页眉）。
 const PUBLISHERS = ['人教版', '北师大版', '苏教版', '外研版', '译林版', '自定义'];
@@ -120,7 +125,7 @@ function drawQuestions(config) {
     const subject = cfg.subject;
     const sources = Array.isArray(cfg.sources) && cfg.sources.length > 0 ? cfg.sources : SOURCES.map((s) => s.key);
     const count = Math.max(1, Math.min(40, Number(cfg.count) || 10));
-    const grade = GRADES.find((g) => g.key === cfg.grade) || GRADES[2];
+    const grade = GRADES.find((g) => g.key === cfg.grade) || GRADE_ALL;
     const topics = Array.isArray(cfg.topics) ? cfg.topics.filter(Boolean) : [];
     const bankTypes = appTypesToBankTypes(cfg.types);
     return safely(async () => {
@@ -179,6 +184,7 @@ function saveGeneratedToBank(subject, questions) {
 module.exports = {
     SUBJECTS,
     GRADES,
+    GRADE_ALL,
     PUBLISHERS,
     SOURCES,
     countBySubject,
