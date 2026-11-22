@@ -47,20 +47,13 @@ Page({
     async restore() {
         this.setData({ authState: 'checking', errorMsg: '' });
         const result = await getApp().ensureSession();
+        // 无登录页：静默登录失败（匿名）也直接进入程序
         const session = result && result.data;
-        if ((result && result.error) || !session) {
-            getApp().resetSession();
-            this.setData({ authState: 'signed-out' });
-            return;
-        }
         this.setData({ authState: 'signed-in' });
+        if (!session) console.warn('[auth] 匿名模式进入（数据读写可能受限）');
         await this.loadTopics();
     },
 
-    async onSignedIn() {
-        getApp().resetSession();
-        await this.restore();
-    },
 
     // 知识点列表（题库 topic_name 去重）。
     async loadTopics() {

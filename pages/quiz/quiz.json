@@ -1,6 +1,3 @@
 {
-  "navigationBarTitleText": "计时答题",
-  "usingComponents": {
-    "login-panel": "../../components/login-panel/login-panel"
-  }
+    "navigationBarTitleText": "计时答题"
 }

@@ -1,6 +1,3 @@
 {
-    "navigationBarTitleText": "出题",
-    "usingComponents": {
-        "login-panel": "/components/login-panel/login-panel"
-    }
+    "navigationBarTitleText": "出题"
 }

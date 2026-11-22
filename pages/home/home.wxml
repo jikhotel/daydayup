@@ -1,6 +1,5 @@
-<login-panel wx:if="{{authState === 'signed-out'}}" bind:signedin="onSignedIn" />
 
-<view class="page" wx:else>
+<view class="page">
     <view class="loading-veil" wx:if="{{authState === 'checking'}}">
         <view class="spinner"></view>
     </view>

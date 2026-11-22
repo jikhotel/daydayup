@@ -13,12 +13,8 @@ Page({
         this.setData({ authState: 'checking' });
         const result = await getApp().ensureSession();
         const session = result && result.data;
-        if ((result && result.error) || !session) {
-            getApp().resetSession();
-            this.setData({ authState: 'signed-out', user: null, initial: '?' });
-            return;
-        }
-        const user = session.user || {};
+        // 无登录页：静默登录失败（匿名）也进入，并在有会话时保留用户信息
+        const user = (session && session.user) || {};
         const name = user.name || '';
         this.setData({
             authState: 'signed-in',
@@ -27,10 +23,6 @@ Page({
         });
     },
 
-    async onSignedIn() {
-        getApp().resetSession();
-        await this.restore();
-    },
 
     async onSignOut() {
         const confirmed = await new Promise((resolve) => {
@@ -43,8 +35,9 @@ Page({
         if (!confirmed) return;
         await cloud.auth.signOut();
         getApp().resetSession();
-        this.setData({ authState: 'signed-out', user: null, initial: '?' });
-        wx.showToast({ title: '已退出', icon: 'success' });
+        // 退出后不回到登录页，直接以微信身份静默重进
+        await this.restore();
+        wx.showToast({ title: '已退出并自动重新登录', icon: 'none' });
     },
 
     showAbout() {

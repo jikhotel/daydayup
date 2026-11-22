@@ -25,13 +25,10 @@ Page({
     async restore() {
         this.setData({ authState: 'checking', errorMsg: '' });
         const result = await getApp().ensureSession();
+        // 无登录页：静默登录失败（匿名）也直接进入程序
         const session = result && result.data;
-        if ((result && result.error) || !session) {
-            getApp().resetSession();
-            this.setData({ authState: 'signed-out' });
-            return;
-        }
         this.setData({ authState: 'signed-in' });
+        if (!session) console.warn('[auth] 匿名模式进入（数据读写可能受限）');
         // 出题页「生成打印卷」入口：直接渲染传入的题目
         if (this._from === 'setup') {
             this._from = '';
@@ -39,10 +36,6 @@ Page({
         }
     },
 
-    async onSignedIn() {
-        getApp().resetSession();
-        await this.restore();
-    },
 
     // 出题页组好的试卷：从 globalData.pendingPaper 取题直接渲染。
     async renderExternal() {

@@ -1,6 +1,3 @@
 {
-  "navigationBarTitleText": "打卡结果",
-  "usingComponents": {
-    "login-panel": "../../components/login-panel/login-panel"
-  }
+    "navigationBarTitleText": "打卡结果"
 }
