@@ -4,7 +4,7 @@
 > 本文件固化项目的全貌、云环境、数据层、功能清单、发布方式与踩坑记录。
 > publishableKey / clientId 属前端公开配置（随代码分发），除此不含任何密钥。
 >
-> 最后更新：2026-11-22 · 当前版本：**v0.2.3**
+> 最后更新：2026-11-22 · 当前版本：**v0.2.4**
 
 ---
 
@@ -32,7 +32,7 @@
 | GitHub 仓库 | `jikhotel/daydayup`（main） |
 | 前身 | subject-checkin v1.x（语文学科打卡），已废弃 |
 
-**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）。
+**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）→ v0.2.4 = bug 修复（AI 积累题可见性/题型映射/输入光标/只勾AI组卷）。
 
 ---
 
@@ -127,6 +127,15 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY -u al
 6. **grade 语义**：1-6 小学 / 7-9 初中 / 10-12 高中（已 group by 验证）。
 7. **WXML 不支持复杂表达式/动态 bindtap**：绑定方法名必须静态存在于 js（`output/test-static.js` 会查）。
 8. **AI 题回写幂等**：`ai_` + djb2(subject|stem) 确定性 id + upsert ignoreDuplicates。
+9. **AI 积累题可见性（v0.2.4 修）**：saveGeneratedToBank 写 grade=null，任何 grade 过滤
+   （gte/lte/in）都会把它们全部排除——drawQuestions 在「全部」年级时**不下发 grade 过滤**，
+   countBySubject/listTopics 完全不过滤 grade。
+10. **题型映射含 AI 行（v0.2.4 修）**：回写行 type 是 multi/judge 原值，appTypesToBankTypes
+   必须映射 multi→multi、judge→judge，否则选多选/判断永远抽不到 AI 积累的题。
+11. **quiz 输入光标（v0.2.4 修）**：textarea/input 每次 keying 都 setData 整个题目列表会
+   光标跳动——onBlankInput 只更新圆点 answered，切题时再 _refreshView 同步输入值。
+12. **只勾 AI 出题（v0.2.4 修）**：setup 只勾 AI 时不能再调 drawQuestions（空 sources 会
+   回退成抽全部来源的题库题，AI 被跳过）。
 
 ---
 

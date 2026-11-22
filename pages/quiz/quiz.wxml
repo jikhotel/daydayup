@@ -9,7 +9,7 @@
         <view class="topbar">
             <view class="top-info">
                 <text class="top-subject">{{session.subject}} · {{session.textbook || '综合'}}</text>
-                <text class="top-meta">{{session.source === 'mistake' ? '错题强化' : 'AI 出题'}} · 共 {{questions.length}} 题</text>
+                <text class="top-meta">{{session.source === 'mistake' ? '错题强化' : (session.source === 'bank' ? '题库组卷' : 'AI 出题')}} · 共 {{questions.length}} 题</text>
             </view>
             <view class="timer">
                 <text class="timer-icon">⏱</text>

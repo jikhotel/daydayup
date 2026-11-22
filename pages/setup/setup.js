@@ -127,16 +127,20 @@ Page({
         const textbook = (publisher === '自定义' ? '自定义教材' : publisher) + '·' + subjectName + '·' + grade.name;
 
         let bankQuestions = [];
-        const drawRes = await bank.drawQuestions({
-            subject: this.data.subject,
-            grade: grade.key,
-            topics: topic && topic !== '全部知识点' ? [topic] : [],
-            types,
-            sources: sources.filter((s) => s !== 'ai'),
-            count,
-        });
-        if (drawRes.error) throw new Error(drawRes.error.message || '题库抽题失败');
-        bankQuestions = drawRes.data || [];
+        const bankSources = sources.filter((s) => s !== 'ai');
+        // 只勾 AI 时不再抽题库（否则空 sources 会回退成抽全部来源，AI 出题被跳过）
+        if (bankSources.length > 0) {
+            const drawRes = await bank.drawQuestions({
+                subject: this.data.subject,
+                grade: grade.key,
+                topics: topic && topic !== '全部知识点' ? [topic] : [],
+                types,
+                sources: bankSources,
+                count,
+            });
+            if (drawRes.error) throw new Error(drawRes.error.message || '题库抽题失败');
+            bankQuestions = drawRes.data || [];
+        }
 
         let aiQuestions = [];
         const aiCount = count - bankQuestions.length;

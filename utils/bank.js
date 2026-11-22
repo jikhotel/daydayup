@@ -80,35 +80,37 @@ function shuffle(arr) {
     return a;
 }
 
-// 应用题型 -> 题库题型：single/multi→choice，blank→numeric，solve→short。
+// 应用题型 -> 题库题型：single→choice，multi→multi（AI 积累行），judge→judge（AI 积累行），
+// blank→numeric，solve→short。
 function appTypesToBankTypes(types) {
     const set = new Set();
     (types || []).forEach((t) => {
-        if (t === 'single' || t === 'multi') set.add('choice');
+        if (t === 'single') set.add('choice');
+        if (t === 'multi') set.add('multi');
+        if (t === 'judge') set.add('judge');
         if (t === 'blank') set.add('numeric');
         if (t === 'solve') set.add('short');
     });
     return Array.from(set);
 }
+const ALL_BANK_TYPES = ['choice', 'multi', 'judge', 'numeric', 'short'];
 
-// 某学科云端题量。
+// 某学科云端题量（不过滤 grade：包含 AI 积累的 grade=null 题）。
 function countBySubject(code) {
     return safely(async () => {
         const res = await cloud.database.from('question_bank')
             .select('subject', { count: 'exact', head: true })
-            .eq('subject', code)
-            .in('grade', [7, 8, 9, 10, 11, 12]);
+            .eq('subject', code);
         return { data: { total: (res && res.count) || 0 }, error: null };
     });
 }
 
-// 某学科知识点列表（topic_name 去重，用于出题范围选择）。
+// 某学科知识点列表（topic_name 去重，用于出题范围选择；不过滤 grade 以含 AI 积累题）。
 function listTopics(code) {
     return safely(async () => {
         const res = await cloud.database.from('question_bank')
             .select('topic_name')
             .eq('subject', code)
-            .in('grade', [7, 8, 9, 10, 11, 12])
             .limit(1000);
         if (res.error) throw res.error;
         const seen = {};
@@ -135,9 +137,11 @@ function drawQuestions(config) {
             .select('id, source, subject, topic_id, topic_name, type, difficulty, prompt, choices, answer, accepts, explanation, knowledge_point')
             .eq('subject', subject)
             .in('source', sources)
-            .in('type', bankTypes.length > 0 ? bankTypes : ['choice', 'numeric', 'short'])
-            .gte('grade', grade.min)
-            .lte('grade', grade.max);
+            .in('type', bankTypes.length > 0 ? bankTypes : ALL_BANK_TYPES);
+        // 「全部」年级不过滤 grade：AI 回写的题 grade 为 null，过滤会把它们全部排除
+        if (grade.key !== 'all') {
+            query = query.gte('grade', grade.min).lte('grade', grade.max);
+        }
         if (topics.length > 0) query = query.in('topic_name', topics);
         const res = await query.limit(300);
         if (res.error) throw res.error;

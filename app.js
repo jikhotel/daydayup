@@ -3,7 +3,7 @@ const { cloud } = require('./utils/cloud');
 App({
     globalData: {
         appName: 'DayDayUp',
-        version: '0.2.3',
+        version: '0.2.4',
         // 组卷数据跨页传递（setup -> paper）
         pendingPaper: null,
     },

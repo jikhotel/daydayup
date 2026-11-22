@@ -156,19 +156,31 @@ Page({
         this._refreshView();
     },
 
+    // 填空/解答输入：只更新圆点状态，不重渲整个题目列表（避免 textarea 光标跳动）。
     onBlankInput(e) {
         const qid = Number(e.currentTarget.dataset.qid);
-        this._answers[qid] = e.detail.value;
-        this._refreshView();
+        const val = e.detail.value;
+        this._answers[qid] = val;
+        const idx = (this._raw || []).findIndex((q) => q.id === qid);
+        if (idx >= 0) {
+            this.setData({ ['questions[' + idx + '].answered']: String(val).trim() !== '' });
+        }
     },
 
     goPrev() {
-        if (this.data.current > 0) this.setData({ current: this.data.current - 1 });
+        if (this.data.current > 0) {
+            this._refreshView();    // 同步填空/解答已输入的值
+            this.setData({ current: this.data.current - 1 });
+        }
     },
     goNext() {
-        if (this.data.current < this.data.questions.length - 1) this.setData({ current: this.data.current + 1 });
+        if (this.data.current < this.data.questions.length - 1) {
+            this._refreshView();
+            this.setData({ current: this.data.current + 1 });
+        }
     },
     jumpTo(e) {
+        this._refreshView();
         this.setData({ current: Number(e.currentTarget.dataset.index) });
     },
 
