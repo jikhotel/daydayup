@@ -93,6 +93,7 @@ Page({
     },
 
     // 分页 JPEG → PDF → 系统文档阅读器（可打印/转发）。
+    // 失败降级链：openDocument 失败 → shareFileMessage 分享 PDF → 弹窗提示。
     async makePdf() {
         if (this.data.pdfBusy || this.data.generating) return;
         const last = this._lastRender;
@@ -101,7 +102,7 @@ Page({
             return;
         }
         this.setData({ pdfBusy: true, errorMsg: '' });
-        wx.showLoading({ title: '正在生成 PDF…', mask: true });
+        wx.showLoading({ title: '1/3 绘制分页图…', mask: true });
         try {
             const node = await this.getCanvasNode();
             const jpegs = await renderer.exportPageJpegs(node, last.questions, {
@@ -110,29 +111,71 @@ Page({
                 kicker: last.options.kicker,
                 notice: last.options.notice,
             }, last.dpr);
+            console.log('[paper] 分页完成，共 ' + jpegs.length + ' 页');
+
+            wx.showLoading({ title: '2/3 组装 PDF…', mask: true });
             const pdfBytes = pdfWriter.buildPdf(jpegs);
+            console.log('[paper] PDF 组装完成，' + pdfBytes.byteLength + ' 字节');
+
+            wx.showLoading({ title: '3/3 保存文件…', mask: true });
             const fs = wx.getFileSystemManager();
             const filePath = wx.env.USER_DATA_PATH + '/练习卷_' + Date.now() + '.pdf';
-            fs.writeFileSync(filePath, pdfBytes.buffer, 'binary');
+            // 防御：按 byteOffset/byteLength 精确拷出 ArrayBuffer 再写盘
+            const buf = pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength);
+            fs.writeFileSync(filePath, buf, 'binary');
+            const stat = fs.statSync(filePath);
+            const sizeKB = Math.round((stat.size || 0) / 1024);
+            console.log('[paper] PDF 已写入 ' + filePath + '（' + sizeKB + ' KB）');
+            if (!stat.size || stat.size < 500) {
+                throw new Error('PDF 文件异常（' + sizeKB + ' KB），请重试');
+            }
             wx.hideLoading();
             this.setData({ pdfBusy: false });
-            wx.openDocument({
-                filePath: filePath,
-                fileType: 'pdf',
-                showMenu: true,
-                success: () => {},
-                fail: (err) => {
-                    wx.showModal({
-                        title: 'PDF 已生成',
-                        content: '已保存到：' + filePath.replace(wx.env.USER_DATA_PATH, '应用目录') + '，打开预览失败：' + ((err && err.errMsg) || ''),
-                        showCancel: false,
-                    });
-                },
-            });
+            this.openOrShare(filePath, sizeKB);
         } catch (err) {
+            console.error('[paper] PDF 流程失败:', err);
             wx.hideLoading();
-            this.setData({ pdfBusy: false, errorMsg: err && err.message ? err.message : 'PDF 生成失败，请重试' });
+            const msg = err && err.message ? err.message : 'PDF 生成失败，请重试';
+            this.setData({ pdfBusy: false, errorMsg: msg });
+            wx.showModal({ title: 'PDF 生成失败', content: msg, showCancel: false });
         }
+    },
+
+    // 打开 PDF 预览（可打印）；失败则降级为转发文件。
+    openOrShare(filePath, sizeKB) {
+        if (typeof wx.openDocument !== 'function') {
+            this.sharePdf(filePath, sizeKB, '当前环境不支持文档预览');
+            return;
+        }
+        wx.openDocument({
+            filePath: filePath,
+            fileType: 'pdf',
+            showMenu: true,
+            success: () => wx.showToast({ title: 'PDF 已打开，可直接打印', icon: 'none' }),
+            fail: (err) => this.sharePdf(filePath, sizeKB, (err && err.errMsg) || '打开预览失败'),
+        });
+    },
+
+    sharePdf(filePath, sizeKB, reason) {
+        console.log('[paper] openDocument 降级：' + reason);
+        if (typeof wx.shareFileMessage === 'function') {
+            wx.shareFileMessage({
+                filePath: filePath,
+                fileName: '练习卷.pdf',
+                success: () => wx.showToast({ title: 'PDF 已可转发/打印', icon: 'none' }),
+                fail: (err) => this.showPdfFallback(filePath, sizeKB, reason + '；转发失败：' + ((err && err.errMsg) || '')),
+            });
+        } else {
+            this.showPdfFallback(filePath, sizeKB, reason + '；当前环境不支持转发文件');
+        }
+    },
+
+    showPdfFallback(filePath, sizeKB, reason) {
+        wx.showModal({
+            title: 'PDF 已生成（' + sizeKB + ' KB）',
+            content: reason + '。文件已保存到应用目录：' + filePath.replace(wx.env.USER_DATA_PATH, '应用目录'),
+            showCancel: false,
+        });
     },
 
     getCanvasNode() {

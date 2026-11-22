@@ -115,6 +115,15 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY -u al
 5. **PDF 无第三方库方案**：canvas 整卷绘制 → 按 A4 比例（pageH = W×297/210）逐页裁 JPEG →
    手写极简 PDF（每页一张 JPEG XObject，/DCTDecode 原始字节直嵌，无字体依赖）→
    `fs.writeFileSync(ArrayBuffer,'binary')` → `wx.openDocument(fileType:'pdf', showMenu:true)`。
+   ⚠️ **真机踩坑（v0.2.1 修复）**：
+   a. `fs.readFile` 返回的是 **ArrayBuffer**，必须 `new Uint8Array(r.data)` 包一层再进
+      `buildPdf`——`TypedArray.set()` 不接受 ArrayBuffer，真机抛 `offset is out of bounds`
+      （本地 Node 测试用 Buffer 复现不出来，Buffer 是 Uint8Array 子类）。
+   b. iOS canvas 单边/面积有硬限制（约 4096/4096²）：整卷画布 totalH×dpr 可能超限导致
+      导出失败或白图 → `clampDpr` 按 totalH 动态压 dpr（下限 1，约 150dpi 可打印）。
+   c. 失败要可见：makePdf 分 3 阶段 loading + console.log('[paper]') 打点 +
+      错误弹窗（只写 errorMsg 卡片用户看不到，会误以为「按钮没效果」）；
+      openDocument 失败降级 `wx.shareFileMessage` 转发 PDF。
 6. **grade 语义**：1-6 小学 / 7-9 初中 / 10-12 高中（已 group by 验证）。
 7. **WXML 不支持复杂表达式/动态 bindtap**：绑定方法名必须静态存在于 js（`output/test-static.js` 会查）。
 8. **AI 题回写幂等**：`ai_` + djb2(subject|stem) 确定性 id + upsert ignoreDuplicates。
