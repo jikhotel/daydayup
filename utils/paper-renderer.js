@@ -296,6 +296,55 @@ function buildPaperImage(canvasNode, questions, opts, dpr) {
     });
 }
 
+// 【推荐链路】整卷绘制一次 → 直接导出一张长 JPEG（不传 x/y/height 裁剪）。
+// 真机上 2d canvas 的 canvasToTempFilePath 裁剪参数与离屏 CSS 尺寸不一致会 fail，
+// 因此 PDF 改由 pdf-writer.buildPdfFromLongImage 用视口矩阵分页，而不是在这里切图。
+// 返回 { data: Uint8Array(JPEG), w, h }（w/h 取导出图片的真实像素尺寸）。
+function buildPaperJpeg(canvasNode, questions, opts, dpr) {
+    return new Promise((resolve, reject) => {
+        const ctx = canvasNode.getContext('2d');
+        setFont(ctx, 15, '');
+        const totalH = renderPaper(ctx, questions, opts, A4_W);
+        // 整数 dpr + iOS 画布高度上限保护（与验证版差异最小，避免非整数 dpr）
+        let safeDpr = Math.max(1, Math.floor(Number(dpr) || 2));
+        if (totalH * safeDpr > 4096) safeDpr = Math.max(1, Math.floor(4096 / totalH));
+        console.log('[paper] 整卷绘制：totalH=' + totalH + ' dpr=' + safeDpr);
+        canvasNode.width = Math.round(A4_W * safeDpr);
+        canvasNode.height = Math.round(totalH * safeDpr);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(safeDpr, safeDpr);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, A4_W, totalH);
+        ctx.textBaseline = 'alphabetic';
+        renderPaper(ctx, questions, opts, A4_W);
+
+        wx.canvasToTempFilePath({
+            canvas: canvasNode,
+            fileType: 'jpg',
+            quality: 0.92,
+            success: (res) => {
+                // 用 getImageInfo 拿真实导出尺寸，避免猜 canvas 物理尺寸
+                wx.getImageInfo({
+                    src: res.tempFilePath,
+                    success: (info) => {
+                        const fs = wx.getFileSystemManager();
+                        fs.readFile({
+                            filePath: res.tempFilePath,
+                            success: (r) => {
+                                console.log('[paper] 长图导出成功：' + info.width + 'x' + info.height + '，' + r.data.byteLength + ' 字节');
+                                resolve({ data: new Uint8Array(r.data), w: info.width, h: info.height });
+                            },
+                            fail: (e) => reject(new Error('读取长图失败: ' + ((e && e.errMsg) || ''))),
+                        });
+                    },
+                    fail: (e) => reject(new Error('读取图片信息失败: ' + ((e && e.errMsg) || ''))),
+                });
+            },
+            fail: (err) => reject(new Error('导出长图失败: ' + ((err && err.errMsg) || ''))),
+        });
+    });
+}
+
 // 分页导出 JPEG：整卷绘制后按 A4 比例逐页裁剪导出（DCTDecode 直嵌 PDF 用）。
 // 与语文应用真机验证版一致，仅加 Uint8Array 包装与日志。
 // 返回 [{ data: Uint8Array(JPEG 字节), w, h }]
@@ -365,5 +414,6 @@ module.exports = {
     shuffle,
     renderPaper,
     buildPaperImage,
+    buildPaperJpeg,
     exportPageJpegs,
 };

@@ -77,8 +77,10 @@ Page({
                 kicker: options.kicker,
                 notice: options.notice,
             }, dpr);
-            const w = 375;
-            const h = Math.round(w * result.height / renderer.A4_W);
+            // CSS 尺寸用逻辑尺寸：与 drawing buffer（A4_W*dpr × totalH*dpr）严格成 dpr 比例，
+            // 否则微信按 CSS*dpr 计算导出区域时会错位/裁空白。canvas 在屏幕外，不影响布局。
+            const w = renderer.A4_W;
+            const h = result.height;
             this._lastRender = { questions, options, dpr };
             this.setData({
                 generating: false,
@@ -92,8 +94,8 @@ Page({
         }
     },
 
-    // 分页 JPEG → PDF → 系统文档阅读器（可打印/转发）。
-    // 流程与语文应用真机验证版一致；分页 JPEG→PDF 的修复在 paper-renderer 内（Uint8Array 包装）。
+    // 整卷长 JPEG → 多页 A4 PDF（每页用同一张图 + 视口矩阵平移）→ 系统打印。
+    // 不再走分页裁剪导出（真机上 2d canvas 的 x/y 裁剪极易 fail）。
     async makePdf() {
         if (this.data.pdfBusy || this.data.generating) return;
         const last = this._lastRender;
@@ -105,13 +107,13 @@ Page({
         wx.showLoading({ title: '正在生成 PDF…', mask: true });
         try {
             const node = await this.getCanvasNode();
-            const jpegs = await renderer.exportPageJpegs(node, last.questions, {
+            const longImg = await renderer.buildPaperJpeg(node, last.questions, {
                 withAnswer: last.options.withAnswer === true,
                 title: last.options.title,
                 kicker: last.options.kicker,
                 notice: last.options.notice,
             }, last.dpr);
-            const pdfBytes = pdfWriter.buildPdf(jpegs);
+            const pdfBytes = pdfWriter.buildPdfFromLongImage(longImg.data, longImg.w, longImg.h);
             console.log('[paper] PDF 组装完成，' + pdfBytes.byteLength + ' 字节');
             const fs = wx.getFileSystemManager();
             const filePath = wx.env.USER_DATA_PATH + '/练习卷_' + Date.now() + '.pdf';

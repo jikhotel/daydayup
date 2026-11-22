@@ -79,8 +79,67 @@ function buildPdf(pages) {
     return concat(parts);
 }
 
+// 【推荐链路】整卷一张长 JPEG → 多页 A4 PDF。
+// 每页引用同一个 image XObject，用 cm 矩阵把长图上下平移，页面 MediaBox 之外自然被裁掉。
+// 完全避开 wx.canvasToTempFilePath 的 x/y 裁剪（真机上易 fail）。
+// jpeg: Uint8Array(JPEG 字节)；imgW/imgH: 图片像素宽高。
+function buildPdfFromLongImage(jpeg, imgW, imgH) {
+    if (!jpeg || !jpeg.length || !imgW || !imgH) throw new Error('PDF 需要有效的长图数据');
+    // 按页宽等比缩放后的整卷高度（pt）
+    const imgHpt = A4_W_PT * imgH / imgW;
+    const pageCount = Math.max(1, Math.ceil(imgHpt / A4_H_PT));
+    const imgObj = 3 + pageCount;      // 图像对象编号
+    const objects = [];
+    objects.push(ascii('<< /Type /Catalog /Pages 2 0 R >>'));
+    objects.push(ascii('<< /Type /Pages /Kids [' + Array.from({ length: pageCount }, (_, i) => (3 + i) + ' 0 R').join(' ') + '] /Count ' + pageCount + ' >>'));
+    for (let i = 0; i < pageCount; i++) {
+        objects.push(ascii(
+            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + A4_W_PT.toFixed(2) + ' ' + A4_H_PT.toFixed(2) + '] ' +
+            '/Resources << /XObject << /Im0 ' + imgObj + ' 0 R >> >> /Contents ' + (imgObj + 1 + i) + ' 0 R >>'
+        ));
+    }
+    // 图像 XObject（整卷长图）
+    objects.push(concat([
+        ascii('<< /Type /XObject /Subtype /Image /Width ' + Math.round(imgW) + ' /Height ' + Math.round(imgH) +
+            ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpeg.length + ' >>\nstream\n'),
+        jpeg,
+        ascii('\nendstream'),
+    ]));
+    // 每页 content：把长图按页宽缩放，向上平移 i 页，只露出本页片段
+    for (let i = 0; i < pageCount; i++) {
+        const f = (A4_H_PT - imgHpt + i * A4_H_PT).toFixed(2);   // 顶部对齐第 0 页
+        const contentText = 'q\n' +
+            '0 0 ' + A4_W_PT.toFixed(2) + ' ' + A4_H_PT.toFixed(2) + ' re W n\n' +
+            A4_W_PT.toFixed(2) + ' 0 0 ' + imgHpt.toFixed(2) + ' 0 ' + f + ' cm\n/Im0 Do\nQ\n';
+        objects.push(concat([
+            ascii('<< /Length ' + contentText.length + ' >>\nstream\n'),
+            ascii(contentText),
+            ascii('endstream'),
+        ]));
+    }
+
+    const parts = [ascii('%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n')];
+    const offsets = [];
+    let pos = parts[0].length;
+    objects.forEach((body, idx) => {
+        const num = idx + 1;
+        offsets.push(pos);
+        const head = ascii(num + ' 0 obj\n');
+        const tail = ascii('\nendobj\n');
+        parts.push(head, body, tail);
+        pos += head.length + body.length + tail.length;
+    });
+    const xrefStart = pos;
+    let xref = 'xref\n0 ' + (objects.length + 1) + '\n0000000000 65535 f \n';
+    offsets.forEach((o) => { xref += pad10(o) + ' 00000 n \n'; });
+    xref += 'trailer\n<< /Size ' + (objects.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xrefStart + '\n%%EOF\n';
+    parts.push(ascii(xref));
+    return concat(parts);
+}
+
 module.exports = {
     A4_W_PT,
     A4_H_PT,
     buildPdf,
+    buildPdfFromLongImage,
 };

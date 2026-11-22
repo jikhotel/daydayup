@@ -4,7 +4,7 @@
 > 本文件固化项目的全貌、云环境、数据层、功能清单、发布方式与踩坑记录。
 > publishableKey / clientId 属前端公开配置（随代码分发），除此不含任何密钥。
 >
-> 最后更新：2026-11-22 · 当前版本：**v0.2.5**
+> 最后更新：2026-11-22 · 当前版本：**v0.2.6**
 
 ---
 
@@ -32,7 +32,7 @@
 | GitHub 仓库 | `jikhotel/daydayup`（main） |
 | 前身 | subject-checkin v1.x（语文学科打卡），已废弃 |
 
-**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）→ v0.2.4 = bug 修复一批 → v0.2.5 = PDF 链路回退对齐语文应用验证版（去 clampDpr/多阶段 loading/statSync/shareFileMessage，保留 Uint8Array 修复+错误弹窗）。
+**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）→ v0.2.4 = bug 修复一批 → v0.2.5 = 回退增强 → v0.2.6 = PDF 换根本方案（整卷长 JPEG + PDF 视口分页，弃用裁剪导出）。
 
 ---
 
@@ -112,18 +112,26 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY -u al
 4. **LLM 流式**：`messages[0] 必须 system`；模型经 `cloud.llm.models.list()` 动态选
    （auto → 含 flash → 第一个可用）；`response_format: {type:'json_object'}`。
    模型输出可能带 ```json 围栏，`extractJson` 已兜底。
-5. **PDF 无第三方库方案**：canvas 整卷绘制 → 按 A4 比例（pageH = W×297/210）逐页裁 JPEG →
-   手写极简 PDF（每页一张 JPEG XObject，/DCTDecode 原始字节直嵌，无字体依赖）→
-   `fs.writeFileSync(ArrayBuffer,'binary')` → `wx.openDocument(fileType:'pdf', showMenu:true)`。
+5. **PDF 方案（v0.2.6 起，根本重写）**：canvas 整卷绘制 → **一次**导出长 JPEG
+   （`buildPaperJpeg`，**不传 x/y/height 裁剪**）→ `buildPdfFromLongImage` 把这一张图作为
+   单个 image XObject，多页 PDF 每页用 `cm` 视口矩阵把长图上下平移、页面 MediaBox 之外
+   自然裁掉 → `fs.writeFileSync` → `wx.openDocument`。
+   ⚠️ 旧方案 `exportPageJpegs`（多页 x/y 裁剪）在真机必失败：2d canvas 的
+   canvasToTempFilePath 裁剪坐标与离屏 CSS 尺寸不一致；语文应用的"长图能存、PDF 失败"
+   也是同一根因。旧函数保留但不再使用。
+   ⚠️ 离屏 canvas 的 CSS 尺寸必须用逻辑尺寸（A4_W × totalH），与 drawing buffer
+   （A4_W*dpr × totalH*dpr）严格成 dpr 比例，否则导出区域错位。
+   ⚠️ 无字体依赖（DCTDecode 直嵌 JPEG）。
    ⚠️ **真机踩坑（v0.2.1 修复）**：
    a. `fs.readFile` 返回的是 **ArrayBuffer**，必须 `new Uint8Array(r.data)` 包一层再进
       `buildPdf`——`TypedArray.set()` 不接受 ArrayBuffer，真机抛 `offset is out of bounds`
       （本地 Node 测试用 Buffer 复现不出来，Buffer 是 Uint8Array 子类）。
-   b. PDF 链路以语文应用真机验证版为基线（pdf-writer 逐字节一致；exportPageJpegs 仅加
-      Uint8Array 包装与 [paper] 日志）。自行加的 clampDpr（非整数 dpr）/多阶段 loading/
-      statSync 校验/shareFileMessage 降级在 v0.2.5 已回退——与验证版有差异的"增强"先撤。
+   b. `fs.readFile` 返回 ArrayBuffer，任何进 PDF 组装器的图片字节必须
+      `new Uint8Array(r.data)`（Node 测试用 Buffer 复现不出真机问题）。
    c. 失败必须弹窗（errorMsg 卡片用户看不到，会误以为「按钮没效果」），
       弹窗文案含 errMsg；makePdf 各步骤有 console.log('[paper]') 打点。
+   d. 排查方法论：对已验证链路"修了两次还失败"时，别再微调参数——换掉
+      失败机制本身（本次：从"裁剪导出 N 张"换成"一张长图 + PDF 视口分页"）。
 6. **grade 语义**：1-6 小学 / 7-9 初中 / 10-12 高中（已 group by 验证）。
 7. **WXML 不支持复杂表达式/动态 bindtap**：绑定方法名必须静态存在于 js（`output/test-static.js` 会查）。
 8. **AI 题回写幂等**：`ai_` + djb2(subject|stem) 确定性 id + upsert ignoreDuplicates。
@@ -144,7 +152,8 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY -u al
 | 文件 | 覆盖 |
 |---|---|
 | `output/test-static.js` | JSON 合法性 / 7 页四件套完整 / JS 语法 / wxml 绑定↔js 方法一致 / require 路径存在 |
-| `output/test-daydayup.js` | 题型映射 / drawQuestions 查询条件（含 grade 区间）/ toAppQuestion / AI 回写幂等 / 判分（multi 顺序无关、blank 归一化别名）/ LLM JSON 解析 / setup.buildPaper 教材拼接与 AI 补足 |
+| `output/test-daydayup.js` | 19 项：题型映射 / drawQuestions（含 grade 与 AI 可见性）/ toAppQuestion / AI 回写幂等 / 判分 / LLM JSON / setup.buildPaper |
+| `output/test-pdf-pipeline.js` | 3 项：长图→多页 PDF 结构（Count/xref/cm 平移）/ 真机 wx stub 下 buildPaperJpeg 无裁剪导出 + ArrayBuffer 包装 + 真实尺寸 |
 
 mock 方式：require.cache 注入 fake cloud；`global.Page/wx/getApp` stub。
 
