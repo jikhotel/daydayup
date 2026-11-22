@@ -267,17 +267,6 @@ function renderPaper(ctx, questions, opts, W) {
     return y + MARGIN_BOTTOM;
 }
 
-// 画布物理尺寸安全上限（iOS 对 canvas 单边/面积有硬限制，超限导出失败或白图）。
-const MAX_CANVAS_EDGE = 4096;
-const MAX_CANVAS_PIXELS = 4096 * 4096;
-function clampDpr(dpr, totalH) {
-    let safe = Number(dpr) || 2;
-    safe = Math.min(safe, MAX_CANVAS_EDGE / A4_W, MAX_CANVAS_EDGE / totalH,
-        Math.sqrt(MAX_CANVAS_PIXELS / (A4_W * totalH)));
-    // 下限 1，保证打印可读；一位小数即可
-    return Math.max(1, Math.floor(safe * 10) / 10);
-}
-
 // 完整流程：传入 canvas node，自动两遍 measure/draw 并导出临时图片路径。
 // opts: { withAnswer, title, kicker, notice, source }
 function buildPaperImage(canvasNode, questions, opts, dpr) {
@@ -286,12 +275,11 @@ function buildPaperImage(canvasNode, questions, opts, dpr) {
         // 第一遍：measure
         setFont(ctx, 15, '');
         const totalH = renderPaper(ctx, questions, opts, A4_W);
-        const safeDpr = clampDpr(dpr, totalH);
         // 设置物理尺寸
-        canvasNode.width = Math.round(A4_W * safeDpr);
-        canvasNode.height = Math.round(totalH * safeDpr);
+        canvasNode.width = Math.round(A4_W * dpr);
+        canvasNode.height = Math.round(totalH * dpr);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(safeDpr, safeDpr);
+        ctx.scale(dpr, dpr);
         // 白底
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, A4_W, totalH);
@@ -309,18 +297,18 @@ function buildPaperImage(canvasNode, questions, opts, dpr) {
 }
 
 // 分页导出 JPEG：整卷绘制后按 A4 比例逐页裁剪导出（DCTDecode 直嵌 PDF 用）。
+// 与语文应用真机验证版一致，仅加 Uint8Array 包装与日志。
 // 返回 [{ data: Uint8Array(JPEG 字节), w, h }]
 function exportPageJpegs(canvasNode, questions, opts, dpr) {
     return new Promise((resolve, reject) => {
         const ctx = canvasNode.getContext('2d');
         setFont(ctx, 15, '');
         const totalH = renderPaper(ctx, questions, opts, A4_W);
-        const safeDpr = clampDpr(dpr, totalH);
-        console.log('[paper] 整卷绘制：totalH=' + totalH + ' dpr=' + safeDpr);
-        canvasNode.width = Math.round(A4_W * safeDpr);
-        canvasNode.height = Math.round(totalH * safeDpr);
+        console.log('[paper] 整卷绘制：totalH=' + totalH + ' dpr=' + dpr);
+        canvasNode.width = Math.round(A4_W * dpr);
+        canvasNode.height = Math.round(totalH * dpr);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(safeDpr, safeDpr);
+        ctx.scale(dpr, dpr);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, A4_W, totalH);
         ctx.textBaseline = 'alphabetic';
@@ -329,7 +317,7 @@ function exportPageJpegs(canvasNode, questions, opts, dpr) {
         const pageH = Math.round(A4_W * 297 / 210);          // A4 页逻辑高
         const totalPxW = canvasNode.width;
         const totalPxH = canvasNode.height;
-        const pagePxH = Math.round(pageH * safeDpr);
+        const pagePxH = Math.round(pageH * dpr);
         const pageCount = Math.max(1, Math.ceil(totalPxH / pagePxH));
         console.log('[paper] 分页：' + pageCount + ' 页，物理尺寸 ' + totalPxW + 'x' + totalPxH);
         const fs = wx.getFileSystemManager();

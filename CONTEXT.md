@@ -4,7 +4,7 @@
 > 本文件固化项目的全貌、云环境、数据层、功能清单、发布方式与踩坑记录。
 > publishableKey / clientId 属前端公开配置（随代码分发），除此不含任何密钥。
 >
-> 最后更新：2026-11-22 · 当前版本：**v0.2.4**
+> 最后更新：2026-11-22 · 当前版本：**v0.2.5**
 
 ---
 
@@ -32,7 +32,7 @@
 | GitHub 仓库 | `jikhotel/daydayup`（main） |
 | 前身 | subject-checkin v1.x（语文学科打卡），已废弃 |
 
-**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）→ v0.2.4 = bug 修复（AI 积累题可见性/题型映射/输入光标/只勾AI组卷）。
+**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）→ v0.2.4 = bug 修复一批 → v0.2.5 = PDF 链路回退对齐语文应用验证版（去 clampDpr/多阶段 loading/statSync/shareFileMessage，保留 Uint8Array 修复+错误弹窗）。
 
 ---
 
@@ -119,11 +119,11 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY -u al
    a. `fs.readFile` 返回的是 **ArrayBuffer**，必须 `new Uint8Array(r.data)` 包一层再进
       `buildPdf`——`TypedArray.set()` 不接受 ArrayBuffer，真机抛 `offset is out of bounds`
       （本地 Node 测试用 Buffer 复现不出来，Buffer 是 Uint8Array 子类）。
-   b. iOS canvas 单边/面积有硬限制（约 4096/4096²）：整卷画布 totalH×dpr 可能超限导致
-      导出失败或白图 → `clampDpr` 按 totalH 动态压 dpr（下限 1，约 150dpi 可打印）。
-   c. 失败要可见：makePdf 分 3 阶段 loading + console.log('[paper]') 打点 +
-      错误弹窗（只写 errorMsg 卡片用户看不到，会误以为「按钮没效果」）；
-      openDocument 失败降级 `wx.shareFileMessage` 转发 PDF。
+   b. PDF 链路以语文应用真机验证版为基线（pdf-writer 逐字节一致；exportPageJpegs 仅加
+      Uint8Array 包装与 [paper] 日志）。自行加的 clampDpr（非整数 dpr）/多阶段 loading/
+      statSync 校验/shareFileMessage 降级在 v0.2.5 已回退——与验证版有差异的"增强"先撤。
+   c. 失败必须弹窗（errorMsg 卡片用户看不到，会误以为「按钮没效果」），
+      弹窗文案含 errMsg；makePdf 各步骤有 console.log('[paper]') 打点。
 6. **grade 语义**：1-6 小学 / 7-9 初中 / 10-12 高中（已 group by 验证）。
 7. **WXML 不支持复杂表达式/动态 bindtap**：绑定方法名必须静态存在于 js（`output/test-static.js` 会查）。
 8. **AI 题回写幂等**：`ai_` + djb2(subject|stem) 确定性 id + upsert ignoreDuplicates。

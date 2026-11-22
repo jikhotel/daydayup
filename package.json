@@ -1,6 +1,6 @@
 {
   "name": "daydayup",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "DayDayUp 做题小程序（基于 cn-math-taxonomy 云题库）",
   "dependencies": {
     "@tencent-ai/workbuddy-cloud-sdk": "^0.1.4-dev.71e5d1e.202611161655"
