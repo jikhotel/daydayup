@@ -7,6 +7,7 @@ const TYPE_OPTIONS = [
     { key: 'multi', name: '多选题', checked: false },
     { key: 'judge', name: '判断题', checked: false },
     { key: 'blank', name: '填空题', checked: false },
+    { key: 'solve', name: '解答题', checked: false },
 ];
 
 const SOURCE_OPTIONS = [

@@ -72,3 +72,12 @@
 .submit-all { margin-top: 28rpx; text-align: center; font-size: 25rpx; color: #8a9099; text-decoration: underline; }
 
 .error-card { margin-top: 24rpx; padding: 24rpx; border-radius: 16rpx; background: #fff0ef; color: #d0403a; font-size: 25rpx; }
+
+/* 解答题 */
+.solve-wrap { margin-top: 20rpx; }
+.solve-textarea {
+    width: 100%; min-height: 220rpx; box-sizing: border-box;
+    padding: 20rpx 24rpx; border: 2rpx solid #e3dbcb; border-radius: 14rpx;
+    background: #fff; font-size: 28rpx; color: #2a2f36; line-height: 1.6;
+}
+.solve-hint { display: block; margin-top: 12rpx; font-size: 22rpx; color: #9aa0aa; }

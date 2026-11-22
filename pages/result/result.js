@@ -2,7 +2,7 @@ const store = require('../../utils/store');
 const ai = require('../../utils/ai');
 const bank = require('../../utils/bank');
 
-const TYPE_NAMES = { single: '单选题', multi: '多选题', judge: '判断题', blank: '填空题' };
+const TYPE_NAMES = { single: '单选题', multi: '多选题', judge: '判断题', blank: '填空题', solve: '解答题' };
 
 function fmtDuration(sec) {
     const m = Math.floor(sec / 60);

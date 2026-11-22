@@ -97,8 +97,11 @@ function questionLayout(ctx, q, index, opts) {
             h += wrapText(ctx, t, restW).length * 22;
         });
     }
+    // 解答题：预留作答横线
+    const solveRules = q.type === 'solve' ? 4 : 0;
+    if (solveRules > 0) h += solveRules * 34;
     h += gapAfter;
-    return { h, lineH, numText, numW, indent, lines, poemText, poemAlone, options };
+    return { h, lineH, numText, numW, indent, lines, poemText, poemAlone, options, solveRules };
 }
 
 function answerLayout(ctx, q, index) {
@@ -207,6 +210,18 @@ function renderPaper(ctx, questions, opts, W) {
                     ly += 22;
                 });
             });
+        }
+        // 解答题：作答横线
+        if (q.type === 'solve' && lay.solveRules > 0) {
+            ctx.strokeStyle = C.line;
+            ctx.lineWidth = 1;
+            for (let r = 0; r < lay.solveRules; r++) {
+                const ry = ly + 24 + r * 34;
+                ctx.beginPath();
+                ctx.moveTo(MARGIN_X + lay.indent, ry);
+                ctx.lineTo(W - MARGIN_X, ry);
+                ctx.stroke();
+            }
         }
         y += lay.h;
     });

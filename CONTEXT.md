@@ -4,7 +4,7 @@
 > 本文件固化项目的全貌、云环境、数据层、功能清单、发布方式与踩坑记录。
 > publishableKey / clientId 属前端公开配置（随代码分发），除此不含任何密钥。
 >
-> 最后更新：2026-11-22 · 当前版本：**v0.2.2**
+> 最后更新：2026-11-22 · 当前版本：**v0.2.3**
 
 ---
 
@@ -32,7 +32,7 @@
 | GitHub 仓库 | `jikhotel/daydayup`（main） |
 | 前身 | subject-checkin v1.x（语文学科打卡），已废弃 |
 
-**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复（ArrayBuffer/画布超限）→ v0.2.2 = 年级逐级可选。
+**版本**：v0.2.0 = 推倒重做第一版 → v0.2.1 = 真机 PDF 修复 → v0.2.2 = 年级逐级可选 → v0.2.3 = 解答题（AI 阅卷）。
 
 ---
 
@@ -41,7 +41,7 @@
 | 页面 | 功能 |
 |---|---|
 | home（tab·学科） | 9 科网格 + 每科云端题量（`countBySubject`），点学科 → setup |
-| setup（出题配置） | 知识点范围（题库 topic_name 去重）/ 年级（初中·高中·全部）/ 教材版本（默认人教版）/ 题量 stepper 5–40 / 题型多选（单选·多选·判断·填空）/ 来源多选（题库·AI）；勾选 AI 显示一句话描述（如「人教版高一上诗词古文练习，要有古文翻译」）；双出口：在线做题 / 生成打印卷 |
+| setup（出题配置） | 知识点范围（题库 topic_name 去重）/ 年级（初中·高中·全部）/ 教材版本（默认人教版）/ 题量 stepper 5–40 / 题型多选（单选·多选·判断·填空·解答，v0.2.3 新增解答题）/ 来源多选（题库·AI）；勾选 AI 显示一句话描述（如「人教版高一上诗词古文练习，要有古文翻译」）；双出口：在线做题 / 生成打印卷 |
 | quiz（在线答题） | 按题型渲染（单选/多选/判断/填空）、翻题、提交判分（云 AI 判分辅助） |
 | result（结果） | 得分/用时/错题列表；错题一键生成同类巩固题（AI）；巩固题回写题库 |
 | mistakes（tab·错题本） | 错题列表 + 已掌握(mastered)标记 + 隐藏已掌握开关 + 勾选错题 AI 出巩固题 |
@@ -67,7 +67,7 @@
 | `quiz_questions` | 会话题目+作答 | sessionId / type / stem / options / answer / accepts / isCorrect / userAnswer / mastered |
 
 ### 3.3 题型映射（应用 ↔ 题库）
-`single/multi → choice`；`blank → numeric/short`（`bank.appTypesToBankTypes`）。
+`single/multi → choice`；`blank → numeric`；`solve → short`（`bank.appTypesToBankTypes`）。题库 short 行经 `toAppQuestion` 转为应用 `solve`（解答题，AI 阅卷）。
 
 ### 3.4 全量导入历史（勿重复踩坑）
 REST 直连路径 `{endpoint}/.cloud/database/rest/v1/<表>`，鉴权头 `x-wb-webapp-access-key`。

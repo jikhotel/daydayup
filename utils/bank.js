@@ -49,12 +49,13 @@ function parseList(raw) {
     try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch (e) { return []; }
 }
 
-// 题库行 -> 应用答题格式（choice→single、numeric/short→blank）。
+// 题库行 -> 应用答题格式（choice→single、numeric→blank、short→solve 解答题）。
 function toAppQuestion(row) {
     const choices = parseList(row.choices);
     let type = row.type;
     if (type === 'choice') type = 'single';
-    if (type === 'numeric' || type === 'short') type = 'blank';
+    if (type === 'numeric') type = 'blank';
+    if (type === 'short') type = 'solve';
     return {
         type,
         stem: row.prompt,
@@ -79,12 +80,13 @@ function shuffle(arr) {
     return a;
 }
 
-// 应用题型 -> 题库题型：single/multi→choice，blank→numeric/short。
+// 应用题型 -> 题库题型：single/multi→choice，blank→numeric，solve→short。
 function appTypesToBankTypes(types) {
     const set = new Set();
     (types || []).forEach((t) => {
         if (t === 'single' || t === 'multi') set.add('choice');
-        if (t === 'blank') { set.add('numeric'); set.add('short'); }
+        if (t === 'blank') set.add('numeric');
+        if (t === 'solve') set.add('short');
     });
     return Array.from(set);
 }
@@ -162,7 +164,10 @@ function saveGeneratedToBank(subject, questions) {
         topic_id: '',
         topic_name: q.knowledgePoint || '',
         grade: null,
-        type: q.type === 'single' ? 'choice' : (q.type === 'multi' ? 'multi' : (q.type === 'judge' ? 'judge' : 'numeric')),
+        type: q.type === 'single' ? 'choice'
+            : (q.type === 'multi' ? 'multi'
+                : (q.type === 'judge' ? 'judge'
+                    : (q.type === 'solve' ? 'short' : 'numeric'))),
         difficulty: 'basic',
         prompt: q.stem,
         choices: Array.isArray(q.options) && q.options.length > 0

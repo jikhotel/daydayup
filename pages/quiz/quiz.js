@@ -1,7 +1,7 @@
 const store = require('../../utils/store');
 const ai = require('../../utils/ai');
 
-const TYPE_NAMES = { single: '单选题', multi: '多选题', judge: '判断题', blank: '填空题' };
+const TYPE_NAMES = { single: '单选题', multi: '多选题', judge: '判断题', blank: '填空题', solve: '解答题' };
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 function fmtDuration(sec) {
@@ -101,6 +101,7 @@ Page({
                 hasOptions: isChoice,
                 isJudge: q.type === 'judge',
                 isBlank: q.type === 'blank',
+                isSolve: q.type === 'solve',
                 optionView,
                 myAnswer,
                 answered: myAnswer !== '',
@@ -192,13 +193,17 @@ Page({
         if (!doSubmit) return;
 
         this.setData({ submitting: true });
-        wx.showLoading({ title: '判分中…', mask: true });
+        const hasSolve = raw.some((q) => q.type === 'solve');
+        wx.showLoading({ title: hasSolve ? 'AI 阅卷判分中…' : '判分中…', mask: true });
         this._stopTimer();
 
         let correctCount = 0;
         for (const q of raw) {
             const userAnswer = this._answers[q.id] || '';
-            const isCorrect = ai.gradeQuestion(q, userAnswer);
+            // 解答题为主观题，走 AI 阅卷；其余客观题本地判分。
+            const isCorrect = q.type === 'solve'
+                ? await ai.judgeSolve(q, userAnswer)
+                : ai.gradeQuestion(q, userAnswer);
             if (isCorrect) correctCount += 1;
             const res = await store.updateQuestionAnswer(q.id, userAnswer, isCorrect);
             if (res.error) {

@@ -56,6 +56,14 @@
                        data-qid="{{questions[current].id}}" bindinput="onBlankInput"
                        value="{{questions[current].myAnswer}}" />
             </view>
+
+            <view class="solve-wrap" wx:elif="{{questions[current].isSolve}}">
+                <textarea class="solve-textarea" placeholder="写出你的解答过程或要点（交卷后 AI 阅卷）"
+                          data-qid="{{questions[current].id}}" bindinput="onBlankInput"
+                          value="{{questions[current].myAnswer}}" maxlength="1000"
+                          auto-height disabled="{{submitting}}"></textarea>
+                <text class="solve-hint">解答题由 AI 按参考答案判分，要点覆盖即可。</text>
+            </view>
         </view>
 
         <view class="nav-row">

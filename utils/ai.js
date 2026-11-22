@@ -6,6 +6,7 @@ const TYPE_LABELS = {
     multi: '多项选择题（有两个或两个以上正确答案）',
     judge: '判断题（答案只能是对 或 错）',
     blank: '填空题（答案为简短文本）',
+    solve: '解答题（需要写出解答过程或要点，答案为简明的标准答案）',
 };
 
 // 题目 JSON 的结构约束，写进 system，防止被用户输入改写。
@@ -17,7 +18,7 @@ const SYSTEM_PROMPT = [
     '规则：',
     '1. options 只在选择题（单选/多选）时填写字符串数组；判断题和填空题的 options 必须是空数组 []。',
     '2. 单选题 answer 填正确选项字母，如 "B"；多选题 answer 填多个字母用英文逗号分隔，如 "A,C,D"，且至少两个。',
-    '3. 判断题 answer 只能是 "对" 或 "错"；填空题 answer 填简短标准答案文本。',
+    '3. 判断题 answer 只能是 "对" 或 "错"；填空题 answer 填简短标准答案文本；解答题 answer 填简明的标准答案要点，详细过程写在 analysis 里。',
     '4. stem/options 里的选项字母要与 options 数组顺序对应（A 对应第 1 项，B 对应第 2 项）。',
     '5. analysis 一句话说明为什么，knowledgePoint 用简短短语点明知识点。',
     '6. 题目之间不要重复，难度适中，题干清晰。',
@@ -65,6 +66,10 @@ function normalizeQuestion(raw, fallbackType) {
         options = [];
     }
     if (type === 'blank') {
+        answer = sanitize(raw.answer);
+        options = [];
+    }
+    if (type === 'solve') {
         answer = sanitize(raw.answer);
         options = [];
     }
@@ -138,6 +143,7 @@ async function generateByConfig(config) {
         normalized.type = rawType;
         if (rawType === 'judge') normalized.options = [];
         if (rawType === 'blank') normalized.options = [];
+        if (rawType === 'solve') normalized.options = [];
         return normalized;
     });
     questions = questions.filter((q) => q.stem !== '');
@@ -209,11 +215,60 @@ function gradeQuestion(question, userAnswer) {
     return correct.toUpperCase() === mine.toUpperCase() && mine !== '';
 }
 
+// 解答题 AI 阅卷：把学生作答与参考答案/解析交给 LLM 判对错。
+// LLM 不可用时降级为「答案要点精确/别名匹配」的严格判分。
+async function judgeSolve(question, userAnswer) {
+    const mine = String(userAnswer == null ? '' : userAnswer).trim();
+    if (!mine) return false;
+    // 命中标准答案/任一别名直接判对，省一次模型调用
+    const mineNorm0 = normalizeAnswer(mine);
+    const accepts0 = Array.isArray(question.accepts) ? question.accepts : [];
+    if (mineNorm0 !== '' && [question.answer].concat(accepts0).filter(Boolean)
+        .some((a) => normalizeAnswer(a) === mineNorm0)) return true;
+    const model = await pickModel();
+    // 降级判分：归一化后与标准答案/别名精确相等才算对
+    const mineNorm = normalizeAnswer(mine);
+    const accepts = Array.isArray(question.accepts) ? question.accepts : [];
+    const strictFallback = mineNorm !== ''
+        && [question.answer].concat(accepts).filter(Boolean).some((a) => normalizeAnswer(a) === mineNorm);
+    if (!model) return strictFallback;
+    try {
+        const userPrompt = [
+            '题目：' + sanitize(question.stem),
+            '参考答案：' + sanitize(question.answer),
+            question.analysis ? '解析：' + sanitize(question.analysis) : '',
+            '学生作答：' + sanitize(mine).slice(0, 500),
+            '',
+            '请判断学生作答是否正确（要点覆盖即可，不要求逐字一致；明显错误或不完整关键要点判错）。',
+            '只输出 JSON：{"correct": true} 或 {"correct": false}，可附 {"reason":"一句话"}。',
+        ].filter(Boolean).join('\n');
+        let answer = '';
+        for await (const chunk of cloud.llm.chat.completions.create({
+            model: model.id,
+            messages: [
+                { role: 'system', content: '你是严格而宽容的阅卷老师，只输出合法 JSON。' },
+                { role: 'user', content: userPrompt },
+            ],
+            stream: true,
+            response_format: { type: 'json_object' },
+        })) {
+            const delta = chunk.choices && chunk.choices[0] && chunk.choices[0].delta;
+            if (delta && delta.content) answer += delta.content;
+        }
+        const parsed = extractJson(answer);
+        return parsed.correct === true;
+    } catch (e) {
+        console.warn('[ai] judgeSolve 降级为严格匹配:', e && e.message);
+        return strictFallback;
+    }
+}
+
 module.exports = {
     generateByConfig,
     generateFromMistakes,
     gradeQuestion,
     normalizeAnswer,
     normalizeQuestion,
+    judgeSolve,
     TYPE_LABELS,
 };
